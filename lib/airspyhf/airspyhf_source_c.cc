@@ -85,7 +85,11 @@ airspyhf_source_c::airspyhf_source_c (const std::string &args)
     _dev(NULL),
     _sample_rate(0),
     _center_freq(0),
-    _freq_corr(0)
+    _freq_corr(0),
+    _auto_gain(true),
+    _threshold(0),
+    _att(0),
+    _lna(0)
 {
   int ret;
 
@@ -280,6 +284,31 @@ size_t airspyhf_source_c::get_num_channels()
   return 1;
 }
 
+
+bool airspyhf_source_c::set_gain_mode( bool automatic, size_t chan )
+{
+  if ( automatic ) {
+      airspyhf_set_hf_agc(_dev, 1);
+  } else {
+      airspyhf_set_hf_agc(_dev, 0);
+      airspyhf_set_hf_agc_threshold(_dev, _threshold);
+      airspyhf_set_hf_att(_dev, _att);
+      airspyhf_set_hf_lna(_dev, _lna);
+  }
+
+  _auto_gain = automatic;
+
+  return get_gain_mode(chan);
+}
+
+
+bool airspyhf_source_c::get_gain_mode( size_t chan )
+{
+  return _auto_gain;
+}
+
+
+
 osmosdr::meta_range_t airspyhf_source_c::get_sample_rates()
 {
   osmosdr::meta_range_t range;
@@ -384,29 +413,114 @@ double airspyhf_source_c::get_freq_corr( size_t chan )
 
 std::vector<std::string> airspyhf_source_c::get_gain_names( size_t chan )
 {
-  return {};
+  std::vector< std::string > names;
+
+  names += "THRESHOLD";
+  names += "LNA";
+  names += "ATT";
+
+  return names;
 }
 
 osmosdr::gain_range_t airspyhf_source_c::get_gain_range( size_t chan )
 {
-  return osmosdr::gain_range_t();
+  return osmosdr::gain_range_t(0, 1, 1);
 }
 
 osmosdr::gain_range_t airspyhf_source_c::get_gain_range( const std::string & name, size_t chan )
 {
+  if ( "ATT" == name ) {
+    return osmosdr::gain_range_t( 0, 8, 1 );
+  }
+
+  if ( "THRESHOLD" == name ) {
+    return osmosdr::gain_range_t( 0, 1, 1 );
+  }
+
+  if ( "LNA" == name ) {
+    return osmosdr::gain_range_t( 0, 1, 1 );
+  }
+
   return osmosdr::gain_range_t();
 }
 
 
+
+double airspyhf_source_c::set_threshold( double gain, size_t chan )
+{
+  int ret = AIRSPYHF_SUCCESS;
+  osmosdr::gain_range_t gains = get_gain_range( "THRESHOLD", chan );
+
+  if (_dev) {
+    double clip_gain = gains.clip( gain, true );
+    uint8_t value = clip_gain;
+
+    ret = airspyhf_set_hf_agc_threshold( _dev, value );
+    if ( AIRSPYHF_SUCCESS == ret )
+      _threshold = clip_gain;
+  }
+  return _threshold;
+}
+
+double airspyhf_source_c::set_att( double gain, size_t chan )
+{
+  int ret = AIRSPYHF_SUCCESS;
+  osmosdr::gain_range_t gains = get_gain_range( "ATT", chan );
+
+  if (_dev) {
+    double clip_gain = gains.clip( gain, true );
+    uint8_t value = clip_gain;
+
+    ret = airspyhf_set_hf_att( _dev, value );
+    if ( AIRSPYHF_SUCCESS == ret )
+      _att = clip_gain;
+  }
+  return _att;
+}
+
+double airspyhf_source_c::set_lna( double gain, size_t chan )
+{
+  int ret = AIRSPYHF_SUCCESS;
+  osmosdr::gain_range_t gains = get_gain_range( "LNA", chan );
+
+  if (_dev) {
+    double clip_gain = gains.clip( gain, true );
+    uint8_t value = clip_gain;
+
+    ret = airspyhf_set_hf_lna( _dev, value );
+    if ( AIRSPYHF_SUCCESS == ret )
+      _lna = clip_gain;
+  }
+  return _lna;
+}
+
+
+
+
+
 double airspyhf_source_c::set_gain( double gain, size_t chan )
 {
-  return gain;
+  return 0.0;
 }
 
 double airspyhf_source_c::set_gain( double gain, const std::string & name, size_t chan)
 {
-  return gain;
+  if ( "LNA" == name ) {
+    return set_lna( gain, chan );
+  }
+
+  if ( "ATT" == name ) {
+    return set_att( gain, chan );
+  }
+
+  if ( "THRESHOLD" == name ) {
+    return set_threshold( gain, chan );
+  }
+
+  return set_gain( gain, chan );
 }
+
+
 
 double airspyhf_source_c::get_gain( size_t chan )
 {
@@ -415,7 +529,18 @@ double airspyhf_source_c::get_gain( size_t chan )
 
 double airspyhf_source_c::get_gain( const std::string & name, size_t chan )
 {
-  return 0.0;
+  if ( "LNA" == name ) {
+    return _lna;
+  }
+
+  if ( "ATT" == name ) {
+    return _att;
+  }
+
+  if ( "THRESHOLD" == name ) {
+    return _threshold;
+  }
+  return get_gain( chan );
 }
 
 std::vector< std::string > airspyhf_source_c::get_antennas( size_t chan )

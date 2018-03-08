@@ -92,6 +92,11 @@ public:
   double set_gain( double gain, const std::string & name, size_t chan = 0 );
   double get_gain( size_t chan = 0 );
   double get_gain( const std::string & name, size_t chan = 0 );
+  bool set_gain_mode( bool automatic, size_t chan );
+  bool get_gain_mode( size_t chan );
+  double set_lna( double gain, size_t chan = 0 );
+  double set_att(double gain, size_t chan = 0 );
+  double set_threshold( double gain, size_t chan = 0 );
 
   std::vector< std::string > get_antennas( size_t chan = 0 );
   std::string set_antenna( const std::string & antenna, size_t chan = 0 );
@@ -112,6 +117,10 @@ private:
   double _sample_rate;
   double _center_freq;
   double _freq_corr;
+  bool _auto_gain;
+  double _threshold;
+  double _att;
+  double _lna;
 };
 
 #endif /* INCLUDED_AIRSPY_SOURCE_C_H */
